@@ -1,0 +1,4 @@
+
+i) adaugat zgomotul si salvat imaginea
+
+ii) bidiaogalizarea matricii folosind reflecția Householder
