@@ -1,6 +1,7 @@
-#include "utils.hpp"
+#include "matrixUtils.hpp"
 #include <random>
 #include <cmath>
+#include <iostream>
 
 float gaussianGenerator(int mean, int stdDev){
 
@@ -24,6 +25,22 @@ float gaussianGenerator(int mean, int stdDev){
 int addNoise(int originalPixel, int mean, int stdDev){
 
     int noise = (int) gaussianGenerator(mean, stdDev);
-    return (originalPixel + noise) % 255;
+    return (originalPixel + noise) % 256;
 
+}
+
+void printImage(std::vector<unsigned char> image, int height, int width){
+    
+    for (unsigned int col = 0; col < height; col++){
+        for (unsigned int row = 0; row < width; row++){
+            int idx = 4 * (col * width + row);
+
+            std::cout << "(" << (int) image[idx] << ", "
+                      << (int) image[idx + 1] << ", "
+                      << (int) image[idx + 2] << ", "
+                      << ")" << std::endl;
+        }
+    }    
+
+    printf("\n");
 }

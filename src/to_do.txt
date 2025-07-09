@@ -1,4 +1,4 @@
 
-i) adaugat zgomotul si salvat imaginea
+i) bidiagonalizarea matricii folosind reflecția Householder
 
-ii) bidiaogalizarea matricii folosind reflecția Householder
+ii) implementarea algoritmului Golub-Kahan 
