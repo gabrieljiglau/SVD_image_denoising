@@ -1,9 +1,7 @@
 #pragma once
 #include <vector>
+#include <optional>
+#include <string>
 
 
-float gaussianPdf(int mean, int stdDev);
-
-int addNoise(int originalPixel, int mean, int stdDev);
-
-void printImage(std::vector<unsigned char> imagePixels, int height, int width);
+std::optional<std::vector<int>> rgbChannel(std::vector<unsigned char> image, int height, int width, char channel);

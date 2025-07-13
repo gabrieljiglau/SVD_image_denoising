@@ -1,8 +1,11 @@
 #include "lodepng.h"
 #include "matrixUtils.hpp"
+#include "imageUtils.hpp"
 #include <vector>
+#include <optional>
 #include <string>
 #include <iostream>
+#include <fmt/core.h>
 
 
 
@@ -12,7 +15,7 @@ int main(){
     unsigned width; // img_row
     unsigned height; // img_col
 
-    std::string myImage = "../images/original.png";
+    std::string myImage = "/home/gabriel/Documents/HolyC/SVD_image_denoising/images/original.png";
     unsigned error = lodepng::decode(image, width, height, myImage);
 
     if (error) {
@@ -24,34 +27,37 @@ int main(){
 
     std::cout << "Image is " << width << " x " << height << "\n";
 
-    std::vector<unsigned char> newImage;
+    printImage(image, 4, 4);
+    std::optional<std::vector<int>> channelR = rgbChannel(image, 4, 4, 'r');
+    
+    if (!channelR){
+        std::cerr << "Wrong input as the RGB channel" << std::endl;
+    }
+
+    if (channelR->empty()){
+        std::cerr << "The vector is empty" << std::endl;
+    } else {
+        std::cout << "inside main" << std::endl;
+        for (const int pixel : channelR.value()){
+            std::cout << pixel << std::endl;
+        }
+    }
+
 
 
     // adding noise
+
     /*
-    for (unsigned int col = 0; col < height; col++){
-        for (unsigned int row = 0; row < width; row++){
-            int idx = 4 * (col * width + row);
+    int mean = 0; //mu
+    std::vector<int> stdDevs = {10, 20, 30};
+    std::string newPath;
+    std::vector<unsigned char> newImage;
 
-            int r = (int) image[idx];
-            int g = (int) image[idx + 1];
-            int b = (int) image[idx + 2];
-            int a = (int) image[idx + 3];
-
-            r += addNoise(r, 0, 30);
-            g += addNoise(g, 0, 30);
-            b += addNoise(b, 0, 30);
-
-            newImage.push_back(r);
-            newImage.push_back(g);
-            newImage.push_back(b);
-            newImage.push_back(a);
-        }
-    }    
-
-    error = lodepng::encode("../images/noisy_mu0_std30.png", newImage, width, height);
-    if (error) {
-        std::cerr << "Encoder error: " << error << lodepng_error_text(error) << std::endl;
+    for (int stdDev : stdDevs){
+        newPath = fmt::format("noisy_mu{mu:.2f}_std{:.2f}.png", 
+                             fmt::arg("mu", mean),
+                             fmt::arg("std", stdDev));
+        generateNoisyImage(image, newImage, newPath, height, width, mean, stdDev);
     }
     */
 
