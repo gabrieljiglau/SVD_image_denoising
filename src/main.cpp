@@ -27,20 +27,23 @@ int main(){
 
     std::cout << "Image is " << width << " x " << height << "\n";
 
-    printImage(image, 4, 4);
-    std::optional<std::vector<int>> channelR = rgbChannel(image, 4, 4, 'r');
+    // printImage(image, height, width);
+    std::optional<ChannelData> channelR = rgbChannel(image, height, width, 'r');
     
     if (!channelR){
         std::cerr << "Wrong input as the RGB channel" << std::endl;
     }
 
-    if (channelR->empty()){
+    if (channelR->matrixChannel.empty()){
         std::cerr << "The vector is empty" << std::endl;
     } else {
         std::cout << "inside main" << std::endl;
-        for (const int pixel : channelR.value()){
-            std::cout << pixel << std::endl;
+        for (const int pixel : channelR->matrixChannel){
+            // std::cout << pixel << std::endl;
         }
+        
+        std::cout << "Cols = " << channelR->channelCols << std::endl;
+        std::cout << "Rows = " << channelR->channelRows << std::endl;
     }
 
 
