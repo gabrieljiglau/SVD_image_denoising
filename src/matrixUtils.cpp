@@ -46,6 +46,16 @@ std::optional<ChannelData> rgbChannel(std::vector<unsigned char> image, int heig
     return ChannelData{matrix, channelCols, channelRows};
 }
 
+void clampSmallValues(Eigen::MatrixXd &A){
+
+    for (Eigen::Index i = 0; i < A.rows(); i++){
+        for(Eigen::Index j = 0; j < A.cols(); j++){
+            if (!(std::abs(A(i, j)) > 1e-10)) {
+                A(i,j) = 0.0;
+            }
+        }
+    }
+}
 
 // dynamic matrix of ints
 Eigen::MatrixXd bidiagonalize(std::vector<int> rgbMatrix, int numRows, int numCols){
@@ -54,49 +64,69 @@ Eigen::MatrixXd bidiagonalize(std::vector<int> rgbMatrix, int numRows, int numCo
     Eigen::Map<Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> mappedMatrix(rgbMatrix.data(), numRows, numCols);
     Eigen::MatrixXd A = mappedMatrix.cast<double>();
 
+    // apply alternatively leftReflection and rightReflection
 
-    // se aplica alternativ leftReflection si rightReflection
-    // aplici leftReflection de min(rows, cols)
-    // aplici rightReflection de min(rows, cols) - 1
-
-    Eigen::VectorXi e1 = Eigen::VectorXi::Unit(numCols, 0); // first column from the identity matrix
-    Eigen::MatrixXi I = Eigen::MatrixXi::Identity(numRows, numCols);
-    int numReflections = std::min(numRows, numCols);
-    int sign = 1;
-
+    int numReflections = std::min(numRows, numCols) - 1;
     for (int reflection = 0; reflection < numReflections; reflection++){
 
-        leftReflection(A, I, e1, reflection);
-        rightReflection(A, I, e1, reflection);
+        std::cout << "Now at reflection number " << reflection << std::endl;
+        leftReflection(A, reflection);
+        rightReflection(A, reflection);
     }
 
-    
+    clampSmallValues(A);
+    return A;
 }
 
-void leftReflection(Eigen::MatrixXd &inputArr, const Eigen::MatrixXi I, const Eigen::VectorXi e1, int numReflection){
+void leftReflection(Eigen::MatrixXd &inputArr, int numReflection){
+
+    int rowNum = inputArr.rows();
+    int colNum = inputArr.cols();
     
-    Eigen::VectorXd H;
+    Eigen::MatrixXd H;
     Eigen::VectorXd col = inputArr.col(numReflection);
+
     auto slice = col.segment(numReflection, col.size() - numReflection); // the arguments are (start_idx, length)
+    int k = slice.size();
+    Eigen::MatrixXi I = Eigen::MatrixXi::Identity(k, k);
+    Eigen::VectorXi e1 = I.col(0); // first column from the identity matrix
 
-    double norm = col.norm();
+    double norm = slice.norm();
     norm = (norm > 0) ? norm : (-1) * norm;
-    Eigen::VectorXd v = col + norm * e1.cast<double>();
+    
+    Eigen::VectorXd v = slice + norm * e1.cast<double>();
+    double normalizationConstant = 2.0 / v.squaredNorm();
+    H = I.cast<double>() - normalizationConstant * v * v.transpose();
 
-    H = I.cast<double>() - 2 * v * v.transpose();
-    inputArr *= H;
+    int rowsLeft = rowNum - numReflection;
+    int colsLeft = colNum - numReflection;
+    inputArr.block(numReflection, numReflection, rowsLeft, colsLeft) = H * inputArr.block(numReflection, numReflection, rowsLeft, colsLeft);
 }
 
-void rightReflection(Eigen::MatrixXd &inputArr, const Eigen::MatrixXi I, const Eigen::VectorXi e1, int numReflection){
+void rightReflection(Eigen::MatrixXd &inputArr, int numReflection){
 
-    Eigen::VectorXd H;
+    int rowNum = inputArr.rows();
+    int colNum = inputArr.cols();
+
+    Eigen::MatrixXd H;
     Eigen::VectorXd row = inputArr.row(numReflection);
-    // numReflection +1 as the starting index, since the element from the main diagonal was already diagonalised 
-    auto slice = row.segment(numReflection + 1, row.size() - numReflection);
 
-    double norm = row.norm();
+    // numReflection + 1 as the starting index, since the element from the main diagonal was already diagonalised 
+    auto slice = row.segment(numReflection + 1, row.size() - (numReflection + 1));
+    int k = slice.size();
+    Eigen::MatrixXi I = Eigen::MatrixXi::Identity(k, k);
+    Eigen::VectorXi e1 = I.col(0);
+
+    double norm = slice.norm();
     norm = (norm > 0) ? norm: (-1) * norm;
-    Eigen::VectorXd w = row + norm * e1.cast<double>();
-    H = I.cast<double>() - 2 * w * w.transpose();
-    inputArr *= H;
+
+    Eigen::VectorXd w = slice + norm * e1.cast<double>(); //e1 should be the same size as the slice
+    double normalizationConstant = 2.0 / w.squaredNorm();
+    H = I.cast<double>() - normalizationConstant * w * w.transpose();
+
+    int rowsLeft = rowNum - numReflection;
+    int colsLeft = colNum - numReflection - 1;
+
+    // numReflection + 1 as the starting index, since the element from the main diagonal was already diagonalised 
+    inputArr.block(numReflection, numReflection + 1, rowsLeft, colsLeft) = inputArr.block(numReflection, numReflection + 1, rowsLeft, colsLeft) * H;
 }
