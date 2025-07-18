@@ -12,10 +12,12 @@ struct ChannelData{
 std::optional<ChannelData> rgbChannel(std::vector<unsigned char> image, int height, int width, char channel);
 
 // dynamic matrix of ints
-Eigen::MatrixXd bidiagonalize(std::vector<int> rgbMatrix, int numRows, int numCols);
+std::vector<Eigen::MatrixXd> bidiagonalize(std::vector<int> rgbMatrix, int numRows, int numCols);
 
-void leftReflection(Eigen::MatrixXd &inputArr, int numReflection);
+Eigen::MatrixXd leftReflection(Eigen::MatrixXd &inputArr, int numReflection, int maxReflection);
 
-void rightReflection(Eigen::MatrixXd &inputArr, int numReflection);
+Eigen::MatrixXd rightReflection(Eigen::MatrixXd &inputArr, int numReflection, int maxReflection);
+
+Eigen::MatrixXd resizeH(Eigen::MatrixXd H, const int maxSize, const int currentSize);
 
 void golubKahan(Eigen::MatrixXd bidiagonalMatrix);
