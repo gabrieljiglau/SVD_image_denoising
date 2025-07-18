@@ -23,11 +23,7 @@ void addNoise(std::vector<unsigned char>image, int height, int width){
     }
 }
 
-void matrixToCsv(Eigen::MatrixXd &matrix, fs::path imagePath, fs::path csvOutput){
-    
-    if (!fs::exists(imagePath)) {
-        std::cerr << "Could not open image: " << imagePath << std::endl;
-    }
+void matrixToCsv(Eigen::MatrixXd &matrix, fs::path csvOutput){
 
     std::ofstream csv(csvOutput);
     
@@ -79,11 +75,28 @@ int main(){
     // adding noise
     // addNoise(image, height, width);
 
-    Eigen::MatrixXd B = bidiagonalize(channelR->matrixChannel, channelR->channelRows, channelR->channelCols);
+    std::vector<Eigen::MatrixXd> matrices = bidiagonalize(channelR->matrixChannel, channelR->channelRows, channelR->channelCols);
+    
+    Eigen::MatrixXd U = matrices[0];
+    Eigen::MatrixXd B = matrices[1];
+    Eigen::MatrixXd V_transpose = matrices[2];
+    
     fs::path imgPath = myImage;
-    fs::path csvPath = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channel_r.csv";
-    matrixToCsv(B, imgPath, csvPath); 
+    fs::path csvPathB = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/B.csv";
+    fs::path csvPathU = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/U.csv";
+    fs::path csvPathV = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/V.csv";
+    
+    //matrixToCsv(B, csvPathB); 
 
+    //matrixToCsv(U, csvPathU); 
+    //matrixToCsv(V_transpose, csvPathV); 
+
+    Eigen::Map<Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> mappedMatrix(channelR->matrixChannel.data(), 
+        channelR->channelRows, channelR->channelCols);
+    Eigen::MatrixXd A = mappedMatrix.cast<double>();
+    Eigen::MatrixXd A_reconstructed = U * B * V_transpose;
+    std::cout << "(A - A_reconstructed).norm = " << (A - A_reconstructed).norm() << std::endl;
+    // the bidiagonalization step must be applied for each channel
     //functie care sa returneze toate canalele bidiagonalizate
 
     return 0;
