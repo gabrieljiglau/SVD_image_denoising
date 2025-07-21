@@ -1,6 +1,8 @@
 #include "lodepng.h"
-#include "matrixUtils.hpp"
+#include "bidiagonalization.hpp"
 #include "imageUtils.hpp"
+#include <Eigen/src/Core/util/Constants.h>
+#include <Eigen/src/SVD/JacobiSVD.h>
 #include <filesystem>
 #include <fstream>
 #include <vector>
@@ -23,10 +25,13 @@ void addNoise(std::vector<unsigned char>image, int height, int width){
     }
 }
 
-void matrixToCsv(Eigen::MatrixXd &matrix, fs::path csvOutput){
+void matrixToCsv(Eigen::MatrixXd &matrix, fs::path csvOutput, bool overwrite){
+
+    if (!overwrite){
+        return;
+    }
 
     std::ofstream csv(csvOutput);
-    
     if (!csv) {
         std::cerr << "Could not open csv " << csvOutput << " for writing" << std::endl;
     }
@@ -42,10 +47,45 @@ void matrixToCsv(Eigen::MatrixXd &matrix, fs::path csvOutput){
         csv << "\n";
     }
     csv.close();
-    std::cout << "Successfully written matrix to " << csvOutput << std::endl;
+    // std::cout << "Successfully written matrix to " << csvOutput << std::endl;
 }
 
-// ar mai fi nevoie de o functie csvToMatrix
+Eigen::MatrixXd csvToMatrix(const fs::path &filename){
+
+    std::ifstream file(filename);
+    std::string line;
+    std::vector<std::vector<double>> values;
+
+    size_t cols = 0;
+    while (std::getline(file, line)){
+
+        std::stringstream linestream(line);
+        std::string element;
+        std::vector<double> row;
+
+        while (std::getline(linestream, element, ',')){
+            
+            if (!element.empty()){
+                row.push_back(std::stod(element));
+            }
+        }
+
+        if (!row.empty()){
+            cols = std::max(cols, row.size());
+            values.push_back(row);
+        }
+    }
+
+    size_t rows = values.size();
+    Eigen::MatrixXd matrix(rows, cols);
+    for (size_t i = 0; i < rows; i++){
+        for (size_t j = 0; j < values[i].size(); j++){
+            matrix(i,j) = values[i][j];
+        }
+    }
+
+    return matrix;
+}
 
 int main(){
 
@@ -75,27 +115,46 @@ int main(){
     // adding noise
     // addNoise(image, height, width);
 
-    std::vector<Eigen::MatrixXd> matrices = bidiagonalize(channelR->matrixChannel, channelR->channelRows, channelR->channelCols);
+    //std::vector<Eigen::MatrixXd> matrices = bidiagonalize(channelR->matrixChannel, channelR->channelRows, channelR->channelCols);
     
-    Eigen::MatrixXd U = matrices[0];
-    Eigen::MatrixXd B = matrices[1];
-    Eigen::MatrixXd V_transpose = matrices[2];
-    
+    //Eigen::MatrixXd U = matrices[0];
+    //Eigen::MatrixXd B_mine = matrices[1];
+    //Eigen::MatrixXd V_transpose = matrices[2];
+
+    /*
     fs::path imgPath = myImage;
     fs::path csvPathB = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/B.csv";
     fs::path csvPathU = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/U.csv";
     fs::path csvPathV = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/V.csv";
-    
-    //matrixToCsv(B, csvPathB); 
+    */
 
-    //matrixToCsv(U, csvPathU); 
-    //matrixToCsv(V_transpose, csvPathV); 
+    //matrixToCsv(B_mine, csvPathB, true); 
+    //matrixToCsv(U, csvPathU, true); 
+    //matrixToCsv(V_transpose, csvPathV, true); 
 
     Eigen::Map<Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> mappedMatrix(channelR->matrixChannel.data(), 
         channelR->channelRows, channelR->channelCols);
+    
     Eigen::MatrixXd A = mappedMatrix.cast<double>();
-    Eigen::MatrixXd A_reconstructed = U * B * V_transpose;
-    std::cout << "(A - A_reconstructed).norm = " << (A - A_reconstructed).norm() << std::endl;
+    /*
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A);
+    double cond = svd.singularValues()(0) / svd.singularValues().tail(1)(0);
+    std::cout << "Condition number: " << cond << std::endl;
+    */
+
+    /*=
+    Eigen::JacobiSVD<Eigen::MatrixXd> svdDecomp(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::MatrixXd U = svdDecomp.matrixU();
+    Eigen::MatrixXd V = svdDecomp.matrixV();
+    Eigen::MatrixXd B = U.transpose() * A * V;
+
+    std::cout << B.rows() << " X " << B.cols() << std::endl;
+
+    Eigen::MatrixXd B_mine = csvToMatrix(csvPathB);
+
+    std::cout << "(B_mine - B).norm = " << (B_mine - B).norm() << std::endl;
+    std::cout << B_mine.rows() << " X " << B_mine.cols() << std::endl;
+    */
     // the bidiagonalization step must be applied for each channel
     //functie care sa returneze toate canalele bidiagonalizate
 
