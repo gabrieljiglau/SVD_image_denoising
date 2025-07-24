@@ -6,13 +6,13 @@
 #include <iostream>
 #include <Eigen/Dense>
 
-bool isDiagonal(Eigen::MatrixXd B){
+
+bool isDiagonal(Eigen::MatrixXd B, double epsilon){
 
     int numRows = B.rows();
     int numCols = B.cols();
 
     bool diagonal = false;
-    double epsilon = 1e-12;
     for (int i = 0; i < numRows; i++){
             
         if (i + 1 > numCols){
@@ -25,6 +25,28 @@ bool isDiagonal(Eigen::MatrixXd B){
     }
 
     return true;
+}
+
+void deflateValues(Eigen::MatrixXd &B, double epsilon){
+
+    int numRows = B.rows();
+    int numCols = B.cols();
+
+    for (int i = 0; i < numRows; i++){
+
+        if (B(i, i) < epsilon){
+            B(i, i) = 0;
+        }
+
+        if (i + 1 > numCols){
+            continue;
+        }
+
+        if (B(i, i + 1) < epsilon){
+            B(i, i + 1) = 0;
+        }
+    }
+
 }
 
 Eigen::MatrixXd chooseSubmatrix(Eigen::MatrixXd B){
@@ -45,45 +67,63 @@ double wilkinsonShift(Eigen::MatrixXd trail){
     return  c - (sign * std::pow(b, 2)) / denominator;
 }
 
-Eigen::MatrixXd shiftHelper(Eigen::MatrixXd A, double miu){
+Eigen::MatrixXd shiftHelper(Eigen::MatrixXd &A, double miu, int i, double epsilon){
 
-    double first = std::pow(A(0, 0), 2) - miu;
-    double second = A(0, 0) *A(1, 0);
+    double first = std::pow(A(i, i), 2) - miu;
+
+    if (first < epsilon){
+        first = 0;
+        return Eigen::MatrixXd::Identity(A.rows(), A.cols());
+    }
+
+    double second = A(i, i) *A(i + 1, i);
 
     double radius = std::sqrt(std::pow(first, 2) + std::pow(second, 2));
     double cos = first / radius;
-    double sin = second / radius;
+    double sin = second / radius;  
 
-    Eigen::MatrixXd G = Eigen::MatrixXd(2, 2);
-    G(0,0) = cos;
-    G(0, 1) = sin;
-    G(1, 0) = -sin;
-    G(1, 1) = cos;
+    int k = A.rows();
+    Eigen::MatrixXd G = Eigen::MatrixXd::Identity(k, k);
+    G(k - 2,k - 2) = cos;
+    G(k - 2, k - 1) = sin;
+    G(k - 1, k - 2) = -sin;
+    G(k - 1, 1) = cos;
 
     return G;
 }
 
-Eigen::MatrixXd applyShift(Eigen::MatrixXd trail, double miu, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed){
+// shiftul e altfel
+Eigen::MatrixXd applyShift(Eigen::MatrixXd &B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed, double miu, double epsilon){
 
-    Eigen::MatrixXd G = shiftHelper(trail, miu);
-    U = G * U;
-    Eigen::MatrixXd newTrail = trail * G.transpose();
-    
-    G = shiftHelper(newTrail, miu);
-    V_transposed = V_transposed * U;
-    return G.transpose() * newTrail;
+    Eigen::MatrixXd G;
+    Eigen::MatrixXd newB;
+    for (int i = 0; i < B.rows() - 2; i += 2){
+        G = shiftHelper(B, miu, i, epsilon);
+        U = G * U;
+        newB = B * G.transpose();
+        
+        G = shiftHelper(newB, miu, i, epsilon);
+        V_transposed = V_transposed * G;
+    }
+
+    return G.transpose() * newB;
 }
 
 Eigen::MatrixXd golubKahan(Eigen::MatrixXd U, Eigen::MatrixXd &B, Eigen::MatrixXd V_transposed){
 
-    B = B * B.transpose();
-    while (!isDiagonal(B)){
+    double epsilon = 1e-12;
+    Eigen::MatrixXd newB;
+
+    while (!isDiagonal(B, epsilon)){
 
         Eigen::MatrixXd trail = chooseSubmatrix(B);
         double miu = wilkinsonShift(trail);
 
-        // the trail doesn't need to be another variable
-        // and the result needs to be updated into B;
-        applyShift(trail, miu, U, V_transposed);
+        newB = applyShift(B, U, V_transposed, miu, epsilon);
+        B = newB;
+        
+        deflateValues(B, epsilon);
     }
+
+    return B;
 }

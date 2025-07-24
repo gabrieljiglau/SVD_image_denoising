@@ -3,12 +3,14 @@
 #include <Eigen/Dense>
 
 
-bool isDiagonal(Eigen::MatrixXd B);
+bool isDiagonal(Eigen::MatrixXd B, double epsilon);
 
 Eigen::MatrixXd chooseSubmatrix(Eigen::MatrixXd B);
 
 double wilkinsonShift(Eigen::MatrixXd B);
 
-Eigen::MatrixXd applyShift(Eigen::MatrixXd trail, double miu);
+void deflateValues(Eigen::MatrixXd &B, double epsilon);
+
+Eigen::MatrixXd applyShift(Eigen::MatrixXd B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed, double miu, double epsilon);
 
 Eigen::MatrixXd golubKahan(Eigen::MatrixXd U, Eigen::MatrixXd &B, Eigen::MatrixXd V_transposed);
