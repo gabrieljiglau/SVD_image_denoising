@@ -1,6 +1,8 @@
 #include "lodepng.h"
 #include "bidiagonalization.hpp"
 #include "imageUtils.hpp"
+#include "golub_kahan.hpp"
+#include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Core/util/Constants.h>
 #include <Eigen/src/SVD/JacobiSVD.h>
 #include <filesystem>
@@ -27,7 +29,7 @@ void addNoise(std::vector<unsigned char>image, int height, int width){
 
 void matrixToCsv(Eigen::MatrixXd &matrix, fs::path csvOutput, bool overwrite){
 
-    if (!overwrite){
+    if (!overwrite and !fs::exists(csvOutput)){
         return;
     }
 
@@ -121,12 +123,12 @@ int main(){
     //Eigen::MatrixXd B_mine = matrices[1];
     //Eigen::MatrixXd V_transpose = matrices[2];
 
-    /*
     fs::path imgPath = myImage;
     fs::path csvPathB = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/B.csv";
     fs::path csvPathU = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/U.csv";
     fs::path csvPathV = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/V.csv";
-    */
+
+    fs::path csvFinalB = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/B_final.csv";
 
     //matrixToCsv(B_mine, csvPathB, true); 
     //matrixToCsv(U, csvPathU, true); 
@@ -157,6 +159,35 @@ int main(){
     */
     // the bidiagonalization step must be applied for each channel
     //functie care sa returneze toate canalele bidiagonalizate
+
+    //Eigen::MatrixXd B = csvToMatrix(csvPathB);
+    //Eigen::MatrixXd U = csvToMatrix(csvPathU);
+    //Eigen::MatrixXd V_transposed = csvToMatrix(csvPathV);
+
+    Eigen::MatrixXd B_new(5, 5);
+    B_new << -8.02055, 129.93, 0, 0, 0,
+        0, -83.5067, 8.72759, 0, 0,
+        0 ,0 ,7.01538, 8.72961, 0,
+        0 ,0, 0, -12.3634, 9.37061,
+        0, 0, 0, 0, -9.53761;
+
+    Eigen::MatrixXd U (5, 5);
+    U << -0.089476, 0.0258819, 0.075377, -0.0699437, 0.0618868,
+    -0.0860535,0.0208654,0.078938,-0.0730571,0.0582035,
+    -0.0958323,0.0333659,0.0655085,-0.0646888,0.0517716,
+    -0.0968101,0.0348304,0.0577696,-0.0538016,0.0463264,
+    -0.0904539,0.0252435,0.0793154,-0.0668693,0.0581317;
+
+    Eigen::MatrixXd V_transposed(5, 5);
+    V_transposed << 0.0556736, 0.0534652, 0.0549524, 0.053282, 0.0464544,
+    -0.374102, -0.25997, -0.262998, -0.177746, -0.0951319,
+    0.0906982, -0.0372941, -0.00531366, -0.0473925, 0.041103,
+    -0.103568, 0.103578, 0.0771154, 0.11051, 0.0401614,
+    0.0611464, -0.0704854, -0.0227363, -0.0229629, -0.0318511;
+
+
+    std::vector<Eigen::MatrixXd> newValues = golubKahan(B_new, U, V_transposed);
+    matrixToCsv(newValues[0], csvFinalB, true);
 
     return 0;
 }

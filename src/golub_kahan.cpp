@@ -38,7 +38,7 @@ void deflateValues(Eigen::MatrixXd &B, double epsilon){
             B(i, i) = 0;
         }
 
-        if (i + 1 > numCols){
+        if (i + 1 >= numCols){
             continue;
         }
 
@@ -46,7 +46,6 @@ void deflateValues(Eigen::MatrixXd &B, double epsilon){
             B(i, i + 1) = 0;
         }
     }
-
 }
 
 Eigen::MatrixXd chooseSubmatrix(Eigen::MatrixXd B){
@@ -61,69 +60,113 @@ double wilkinsonShift(Eigen::MatrixXd trail){
     double c = trail(1, 1);
 
     double delta = (a - c) / 2;    
-    double denominator = std::sqrt(std::pow(delta, 2) + std::pow(b, 2)) + std::abs(delta);
+    double denominatorSquared = std::pow(delta, 2) + std::pow(b, 2);
 
+    if (denominatorSquared < 1e-20){ // avoid division by 0
+        return c;
+    }
+  
     double sign = (delta >= 0) ? 1.0 : 0.0;
-    return  c - (sign * std::pow(b, 2)) / denominator;
+    return  c - (sign * std::pow(b, 2)) / (std::abs(delta) + std::sqrt(denominatorSquared));
 }
 
-Eigen::MatrixXd shiftHelper(Eigen::MatrixXd &A, double miu, int i, double epsilon){
+Eigen::MatrixXd givensCommon(int numRows, int numCols, int i, double a, double b){
 
-    double first = std::pow(A(i, i), 2) - miu;
+    Eigen::MatrixXd G = Eigen::MatrixXd::Identity(numRows, numCols);
 
-    if (first < epsilon){
-        first = 0;
-        return Eigen::MatrixXd::Identity(A.rows(), A.cols());
+    double radius = std::hypot(a, b);
+    if (radius == 0){
+        return G;
     }
 
-    double second = A(i, i) *A(i + 1, i);
+    double cos = a / radius;
+    double sin = -b / radius;
 
-    double radius = std::sqrt(std::pow(first, 2) + std::pow(second, 2));
-    double cos = first / radius;
-    double sin = second / radius;  
-
-    int k = A.rows();
-    Eigen::MatrixXd G = Eigen::MatrixXd::Identity(k, k);
-    G(k - 2,k - 2) = cos;
-    G(k - 2, k - 1) = sin;
-    G(k - 1, k - 2) = -sin;
-    G(k - 1, 1) = cos;
+    G(i, i) = cos;
+    G(i, i + 1) = sin;
+    G(i + 1, i) = -sin;
+    G(i + 1, i + 1) = cos;
 
     return G;
 }
 
-// shiftul e altfel
-Eigen::MatrixXd applyShift(Eigen::MatrixXd &B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed, double miu, double epsilon){
+Eigen::MatrixXd applyShift(Eigen::MatrixXd B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed, double miu, double epsilon){
 
-    Eigen::MatrixXd G;
-    Eigen::MatrixXd newB;
-    for (int i = 0; i < B.rows() - 2; i += 2){
-        G = shiftHelper(B, miu, i, epsilon);
-        U = G * U;
-        newB = B * G.transpose();
+    double a = 0.0;
+    double b = 0.0;
+    Eigen::MatrixXd G = Eigen::MatrixXd::Identity(B.rows(), B.cols());
+
+    assert(B.rows() == B.cols() && "The input matrix must be square");
+    for (int i = 0; i < B.rows() - 1; i++){
+
+        std::cout << "Now applying shift for row " << i << std::endl;
+
+        if (i != 0){ 
+            a = B(i, i);
+
+            if (i + 1 > B.cols() - 1){
+                break;
+            }
+            b = B(i, i+1);
+        } else { // smart miu
+            a = std::pow(B(0, 0), 2) - miu;
+            b = B(0, 0) * B(0, 1);
+        }
         
-        G = shiftHelper(newB, miu, i, epsilon);
+        G = givensCommon(B.rows(), B.cols(), i, a, b);
         V_transposed = V_transposed * G;
+        B = B * G.transpose();
+        
+        a = B(i, i);
+
+        if (i + 1 >= B.rows() - 1){
+            break;
+        }
+        b = B(i + 1, i);
+        G = givensCommon(B.rows(), B.cols(), i, a, b);
+
+        U = G * U;
+        B = G * B;
+
+        std::cout << B << std::endl;
     }
 
-    return G.transpose() * newB;
+    return B;
 }
 
-Eigen::MatrixXd golubKahan(Eigen::MatrixXd U, Eigen::MatrixXd &B, Eigen::MatrixXd V_transposed){
+std::vector<Eigen::MatrixXd> golubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed){
 
     double epsilon = 1e-12;
-    Eigen::MatrixXd newB;
+    int iterationNumber = 0;
 
     while (!isDiagonal(B, epsilon)){
+
+        std::cout<< "Now at iteration " << iterationNumber << std::endl;
 
         Eigen::MatrixXd trail = chooseSubmatrix(B);
         double miu = wilkinsonShift(trail);
 
-        newB = applyShift(B, U, V_transposed, miu, epsilon);
-        B = newB;
-        
+        // miu are mereu aceeasi valoare ???
+        std::cout << "miu = " << miu << std::endl;
+
+        B = applyShift(B, U, V_transposed, miu, epsilon);
+
         deflateValues(B, epsilon);
+        iterationNumber += 1;
+
+        std::cout << "B : " << std::endl;
+        std::cout << B << std::endl;
+
+        std::cout << "U : " << std::endl;
+        std::cout << U << std::endl;
+
+        std::cout << "V_transposed : " << std::endl;
+        std::cout << V_transposed << std::endl;
+        
+        if (iterationNumber > 25){
+            break;
+        }
     }
 
-    return B;
+    return std::vector{B, U, V_transposed};
 }
