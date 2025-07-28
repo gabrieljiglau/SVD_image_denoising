@@ -1,26 +1,29 @@
 #include "golub_kahan.hpp"
 #include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Core/util/Constants.h>
-#include <algorithm>
 #include <vector>
 #include <iostream>
 #include <Eigen/Dense>
 
 
-bool isDiagonal(Eigen::MatrixXd B, double epsilon){
+bool isDiagonal(Eigen::MatrixXd B){
 
     int numRows = B.rows();
     int numCols = B.cols();
 
-    bool diagonal = false;
     for (int i = 0; i < numRows; i++){
-            
-        if (i + 1 > numCols){
-            continue;
-        }
+        for (int j = 0; j < numCols; j++){
+            if (i != j && B(i, j) != 0){
+                return false;
+            }
 
-        if (B(i, i + 1) > epsilon){
-            return diagonal;
+            if (i == j && B(i, j) == 0){
+                return false;
+            }
+
+            if (i == j && B(i, j) != 0){
+                continue;
+            }
         }
     }
 
@@ -33,17 +36,11 @@ void deflateValues(Eigen::MatrixXd &B, double epsilon){
     int numCols = B.cols();
 
     for (int i = 0; i < numRows; i++){
+        for (int j = 0; j < numCols; j++){
 
-        if (B(i, i) < epsilon){
-            B(i, i) = 0;
-        }
-
-        if (i + 1 >= numCols){
-            continue;
-        }
-
-        if (B(i, i + 1) < epsilon){
-            B(i, i + 1) = 0;
+            if (B(i, j) < epsilon){
+                B(i, j) = 0;
+            }
         }
     }
 }
@@ -62,73 +59,96 @@ double wilkinsonShift(Eigen::MatrixXd trail){
     double delta = (a - c) / 2;    
     double denominatorSquared = std::pow(delta, 2) + std::pow(b, 2);
 
-    if (denominatorSquared < 1e-20){ // avoid division by 0
+    if (denominatorSquared < 1e-14){ // avoid division by 0
         return c;
     }
   
-    double sign = (delta >= 0) ? 1.0 : 0.0;
+    double sign = (delta >= 0) ? 1.0 : -1.0;
     return  c - (sign * std::pow(b, 2)) / (std::abs(delta) + std::sqrt(denominatorSquared));
 }
 
-Eigen::MatrixXd givensCommon(int numRows, int numCols, int i, double a, double b){
-
-    Eigen::MatrixXd G = Eigen::MatrixXd::Identity(numRows, numCols);
+std::tuple<double, double> givensCommon(double a, double b, double epsilon){
 
     double radius = std::hypot(a, b);
-    if (radius == 0){
-        return G;
+
+    std::cout << "radius = " << radius << std::endl;
+
+    if (radius < epsilon){
+        return std::tuple{0.0, 1.0};
     }
 
+    double sin = b / radius;
     double cos = a / radius;
-    double sin = -b / radius;
 
-    G(i, i) = cos;
-    G(i, i + 1) = sin;
-    G(i + 1, i) = -sin;
-    G(i + 1, i + 1) = cos;
+    return std::tuple{sin, cos};
+}
 
-    return G;
+void matMul(Eigen::MatrixXd &full, double sin, double cos, int i, bool right){
+
+    if (!right){
+        auto r1 = full.row(i);
+        auto r2 = full.row(i + 1);
+        
+        Eigen::RowVectorXd temp1 = full.row(i) * cos - full.row(i + 1) * sin;
+        Eigen::RowVectorXd temp2 = full.row(i) * -sin + full.row(i + 1) * cos;
+
+        r1 = temp1;
+        r2 = temp2;
+    } else {
+        auto c1 = full.col(i);
+        auto c2 = full.col(i + 1);
+
+        Eigen::VectorXd temp1 = full.col(i) * cos + full.col(i + 1) * sin;
+        Eigen::VectorXd temp2 = full.col(i) * -sin + full.col(i + 1) * cos;
+
+        c1 = temp1;
+        c2 = temp2;
+    }
+}
+
+void matMulTranspose(Eigen::MatrixXd &full, double sin, double cos, int i){
+
+    auto r1 = full.col(i);
+    auto r2 = full.col(i + 1);
+
+    Eigen::VectorXd temp1 = full.col(i) * cos - full.col(i + 1) * sin;
+    Eigen::VectorXd temp2 = full.col(i) * sin + full.col(i + 1) * cos;
+    
+    r1 = temp1;
+    r2 = temp2;
 }
 
 Eigen::MatrixXd applyShift(Eigen::MatrixXd B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed, double miu, double epsilon){
+    assert(B.rows() == B.cols() && "The input matrix must be square");
 
+    std::tuple<double, double> tuple;
     double a = 0.0;
     double b = 0.0;
-    Eigen::MatrixXd G = Eigen::MatrixXd::Identity(B.rows(), B.cols());
+    bool right = true;
 
-    assert(B.rows() == B.cols() && "The input matrix must be square");
-    for (int i = 0; i < B.rows() - 1; i++){
-
+    // numRows() - 1 since the last non-zero element from the last row is the one from the main diagonal 
+    for (int i = 0; i < B.rows() - 1; i++){ 
+        assert(i >= 0 && i + 1 < B.rows() && i + 1 < B.cols());
         std::cout << "Now applying shift for row " << i << std::endl;
 
         if (i != 0){ 
             a = B(i, i);
-
-            if (i + 1 > B.cols() - 1){
-                break;
-            }
             b = B(i, i+1);
         } else { // smart miu
             a = std::pow(B(0, 0), 2) - miu;
             b = B(0, 0) * B(0, 1);
         }
         
-        G = givensCommon(B.rows(), B.cols(), i, a, b);
-        V_transposed = V_transposed * G;
-        B = B * G.transpose();
-        
+        auto [sin, cos] = givensCommon(a, b, epsilon);
+        matMul(V_transposed, sin, cos, i, right);
+        matMulTranspose(B, sin, cos, i);
+
         a = B(i, i);
-
-        if (i + 1 >= B.rows() - 1){
-            break;
-        }
         b = B(i + 1, i);
-        G = givensCommon(B.rows(), B.cols(), i, a, b);
-
-        U = G * U;
-        B = G * B;
-
-        std::cout << B << std::endl;
+        
+        auto [sin1, cos1] = givensCommon(a, b, epsilon);
+        matMul(U, sin1, cos1, i, !right);
+        matMul(B, sin1, cos1, i, !right);
     }
 
     return B;
@@ -139,7 +159,7 @@ std::vector<Eigen::MatrixXd> golubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U, E
     double epsilon = 1e-12;
     int iterationNumber = 0;
 
-    while (!isDiagonal(B, epsilon)){
+    while (!isDiagonal(B)){
 
         std::cout<< "Now at iteration " << iterationNumber << std::endl;
 
@@ -153,20 +173,16 @@ std::vector<Eigen::MatrixXd> golubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U, E
 
         deflateValues(B, epsilon);
         iterationNumber += 1;
-
-        std::cout << "B : " << std::endl;
-        std::cout << B << std::endl;
-
-        std::cout << "U : " << std::endl;
-        std::cout << U << std::endl;
-
-        std::cout << "V_transposed : " << std::endl;
-        std::cout << V_transposed << std::endl;
-        
-        if (iterationNumber > 25){
-            break;
-        }
     }
+
+    std::cout << "B : " << std::endl;
+    std::cout << B << std::endl;
+
+    std::cout << "U : " << std::endl;
+    std::cout << U << std::endl;
+
+    std::cout << "V_transposed : " << std::endl;
+    std::cout << V_transposed << std::endl;
 
     return std::vector{B, U, V_transposed};
 }
