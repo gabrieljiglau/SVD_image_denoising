@@ -96,11 +96,8 @@ Eigen::MatrixXd resizeH(Eigen::MatrixXd H, const int fullSize, const int reflect
 
 
 // dynamic matrix of ints
-std::vector<Eigen::MatrixXd> bidiagonalize(std::vector<int> rgbMatrix, int numRows, int numCols){
+std::vector<Eigen::MatrixXd> bidiagonalize(Eigen::MatrixXd A, int numRows, int numCols){
     
-    Eigen::Map<Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> mappedMatrix(rgbMatrix.data(), numRows, numCols);
-    Eigen::MatrixXd A = mappedMatrix.cast<double>();
-
     Eigen::MatrixXd A_balanced = A / 255.0;
     Eigen::MatrixXd A_copy = A_balanced;
 
@@ -125,16 +122,15 @@ std::vector<Eigen::MatrixXd> bidiagonalize(std::vector<int> rgbMatrix, int numRo
     std::vector<Eigen::MatrixXd> matricesList;
 
     // sanity checks
-    // std::cout << "V_T * V - I= " << (((V.transpose() * V) - Eigen::MatrixXd::Identity(V.rows(), V.cols())).norm())<< std::endl;
-    // std::cout << "U_T * U -I = " << (((U.transpose() * U) - Eigen::MatrixXd::Identity(U.rows(), U.cols())).norm())<< std::endl;
+    std::cout << "V_T * V - I= " << (((V.transpose() * V) - Eigen::MatrixXd::Identity(V.rows(), V.cols())).norm())<< std::endl;
+    std::cout << "U_T * U -I = " << (((U.transpose() * U) - Eigen::MatrixXd::Identity(U.rows(), U.cols())).norm())<< std::endl;
+
+    // more sanity checks, it's impossible to perfectly reconstruct the original matrix ??? 
+    Eigen::MatrixXd B_explicit = U.transpose() * A_copy * V;
 
     matricesList.push_back(clampSmallValues(U));
     matricesList.push_back(clampSmallValues(A_balanced));
     matricesList.push_back(clampSmallValues(V).transpose());
-
-    // more sanity checks, since it's impossible to perfectly reconstruct the original matrix (it's ill-conditioned) 
-    /*=
-    Eigen::MatrixXd B_explicit = U.transpose() * A_copy * V;
     
     auto recon1 = U * A_balanced * V.transpose();    
     auto recon2 = U * B_explicit * V.transpose();
@@ -144,7 +140,6 @@ std::vector<Eigen::MatrixXd> bidiagonalize(std::vector<int> rgbMatrix, int numRo
 
     std::cout << "IS B Bidiagonal ?? " << checkBidiagonality(A_balanced, numRows, numCols) << std::endl;
     std::cout << "IS B_explicit Bidiagonal ?? " << checkBidiagonality(B_explicit, numRows, numCols) << std::endl;
-    */
 
     return matricesList;
 }

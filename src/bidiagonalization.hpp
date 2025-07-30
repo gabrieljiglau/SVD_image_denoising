@@ -12,7 +12,7 @@ struct ChannelData{
 std::optional<ChannelData> rgbChannel(std::vector<unsigned char> image, int height, int width, char channel);
 
 // dynamic matrix of ints
-std::vector<Eigen::MatrixXd> bidiagonalize(std::vector<int> rgbMatrix, int numRows, int numCols);
+std::vector<Eigen::MatrixXd> bidiagonalize(Eigen::MatrixXd A, int numRows, int numCols);
 
 Eigen::MatrixXd leftReflection(Eigen::MatrixXd &inputArr, int numReflection, int maxReflection);
 
