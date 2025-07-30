@@ -14,7 +14,7 @@ fi
 
 image_utils_path=src/imageUtils.cpp
 image_utils_out=src/imageUtils.o
-g++ -c "$image_utils_path" -o "$image_utils_out"
+g++ -c "$image_utils_path" -lfmt -o "$image_utils_out"
 if [ $? -ne 0 ]; then
    echo "Compiling $image_utils_path failed"
    exit 2
@@ -28,12 +28,20 @@ if [ $? -ne 0 ]; then
    exit 3 
 fi
 
-golub_kahan_path=src/golub_kahan.cpp
-golub_kahan_out=src/golub_kahan.o
+golub_kahan_path=src/golubKahan.cpp
+golub_kahan_out=src/golubKahan.o
 g++ "-I/usr/bin/eigen" -c "$golub_kahan_path" -o "$golub_kahan_out"
 if [ $? -ne 0 ]; then
    echo "Compiling $golub_kahan_path failed"
-   exit 3 
+   exit 4
+fi
+
+tests_path=src/tests.cpp
+tests_out=src/tests.o
+g++ "-I/usr/bin/eigen" -c "$tests_path" -o "$tests_out"
+if [ $? -ne 0 ]; then
+   echo "Compiling $tests_path failed"
+   exit 5
 fi
 
 main=src/main.cpp
@@ -41,9 +49,9 @@ main_out=src/main.o
 g++ "-I/usr/bin/eigen" -c $main -o "$main_out" 
 if [ $? -ne 0 ]; then
    echo "Compiling $main failed"  
-   exit 4
+   exit 6
 fi
 
-g++ "$main_out" "$lode_png_out" "$image_utils_out" "$bidiagonalization_out" "$golub_kahan_out" -lfmt -o main.exe
+g++ "$main_out" "$lode_png_out" "$image_utils_out" "$bidiagonalization_out" "$golub_kahan_out" "$tests_out" -lfmt -o main.exe
 echo "main.cpp linked and compiled successfully"
 ./main.exe

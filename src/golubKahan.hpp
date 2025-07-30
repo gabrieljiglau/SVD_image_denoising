@@ -11,6 +11,6 @@ double wilkinsonShift(Eigen::MatrixXd B);
 
 void deflateValues(Eigen::MatrixXd &B, double epsilon);
 
-Eigen::MatrixXd applyShift(Eigen::MatrixXd B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed, double miu, double epsilon);
+void applyShift(Eigen::MatrixXd &B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed, double epsilon);
 
-std::vector<Eigen::MatrixXd> golubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed);
+std::vector<Eigen::MatrixXd> svdGolubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U, Eigen::MatrixXd &V_transposed);

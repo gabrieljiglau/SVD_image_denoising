@@ -1,4 +1,0 @@
-
-i) bidiagonalizarea matricii folosind reflecția Householder
-
-ii) implementarea algoritmului Golub-Kahan 
