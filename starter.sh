@@ -12,11 +12,11 @@ if [ ! -f "$lode_png_out" ]; then
    fi
 fi
 
-image_utils_path=src/imageUtils.cpp
-image_utils_out=src/imageUtils.o
-g++ -c "$image_utils_path" -lfmt -o "$image_utils_out"
+utils_path=src/imageUtils.cpp
+utils_out=src/imageUtils.o
+g++ -c "$utils_path" -lfmt -o "$utils_out"
 if [ $? -ne 0 ]; then
-   echo "Compiling $image_utils_path failed"
+   echo "Compiling $utils_path failed"
    exit 2
 fi
 
@@ -52,6 +52,6 @@ if [ $? -ne 0 ]; then
    exit 6
 fi
 
-g++ "$main_out" "$lode_png_out" "$image_utils_out" "$bidiagonalization_out" "$golub_kahan_out" "$tests_out" -lfmt -o main.exe
+g++ "$main_out" "$lode_png_out" "$utils_out" "$bidiagonalization_out" "$golub_kahan_out" "$tests_out" -lfmt -o main.exe
 echo "main.cpp linked and compiled successfully"
 ./main.exe

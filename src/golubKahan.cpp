@@ -1,49 +1,11 @@
 #include "golubKahan.hpp"
+#include "utils.hpp"
 #include <Eigen/src/Core/Matrix.h>
 #include <Eigen/src/Core/util/Constants.h>
 #include <vector>
 #include <iostream>
 #include <Eigen/Dense>
 
-
-bool isDiagonal(Eigen::MatrixXd B){
-
-    int numRows = B.rows();
-    int numCols = B.cols();
-
-    for (int i = 0; i < numRows; i++){
-        for (int j = 0; j < numCols; j++){
-            if (i != j && B(i, j) != 0){
-                return false;
-            }
-
-            if (i == j && B(i, j) == 0){
-                return false;
-            }
-
-            if (i == j && B(i, j) != 0){
-                continue;
-            }
-        }
-    }
-
-    return true;
-}
-
-void deflateValues(Eigen::MatrixXd &B, double epsilon){
-
-    int numRows = B.rows();
-    int numCols = B.cols();
-
-    for (int i = 0; i < numRows; i++){
-        for (int j = 0; j < numCols; j++){
-
-            if (std::abs(B(i, j)) < epsilon){
-                B(i, j) = 0;
-            }
-        }
-    }
-}
 
 Eigen::MatrixXd chooseSubmatrix(Eigen::MatrixXd B){
 
@@ -157,7 +119,7 @@ std::vector<Eigen::MatrixXd> svdGolubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U
         }
 
         applyShift(B, U, V_transposed, epsilon);
-        deflateValues(B, epsilon);
+        B = deflateValues(B, epsilon);
 
         if (iterationNumber >= 1500) {
             break;
@@ -166,6 +128,7 @@ std::vector<Eigen::MatrixXd> svdGolubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U
         iterationNumber += 1;
     }
 
+    /*
     std::cout << "B : " << std::endl;
     std::cout << B.rows() << " x " << B.cols() << std::endl;
 
@@ -174,6 +137,7 @@ std::vector<Eigen::MatrixXd> svdGolubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U
 
     std::cout << "V_transposed : " << std::endl;
     std::cout << V_transposed.rows() << " x " << V_transposed.cols() << std::endl;
+    */
 
     return std::vector{B, U, V_transposed};
 }
