@@ -1,6 +1,7 @@
 #pragma once
 #include <Eigen/Dense>
 
+std::vector<Eigen::MatrixXd> bidiagonalize(Eigen::MatrixXd A, int numRows, int numCols);
 
 Eigen::MatrixXd leftReflection(Eigen::MatrixXd &inputArr, int numReflection, int maxReflection);
 

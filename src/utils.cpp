@@ -1,5 +1,6 @@
 #include "utils.hpp"
 #include "lodepng.h"
+#include <Eigen/src/Core/Matrix.h>
 #include <random>
 #include <cmath>
 #include <iostream>
@@ -54,24 +55,31 @@ Eigen::MatrixXd truncateV(Eigen::MatrixXd &V, int k){
     return V.block(0, 0, k, colNum);
 }
 
+
+
 void reconstructImage(std::vector<Eigen::MatrixXd> truncatedChannels, std::vector<unsigned char> &newImage,
-    std::string newPath, int height, int width, int idx){
+    std::string newPath, int height, int width, int id){
+    
+    std::vector<Eigen::RowVectorXd> rowVectors;
 
-    for (unsigned int col = 0; col < height; col++){
-        for (unsigned int row = 0; row < width; row++){
-            int idx = 4 * (col * width + row);
+    for (Eigen::MatrixXd channel: truncatedChannels){
+        Eigen::RowVectorXd innerVector = Eigen::Map<Eigen::RowVectorXd>(channel.data(), channel.size());
+        rowVectors.push_back(innerVector);
+    }
 
-            int r = (int) truncatedChannels[0][idx];
-            int g = (int) truncatedChannels[1][idx + 1];
-            int b = (int) truncatedChannels[2][idx + 2];
-            int a = (int) 255; // I already know a is 255, the image is not transparent
+    int size = rowVectors[0].size();
+    for (int i = 0; i < size; i++){
 
-            newImage.push_back(r);
-            newImage.push_back(g);
-            newImage.push_back(b);
-            newImage.push_back(a);
-        }
-    }    
+        int r = (int) rowVectors[0](i);
+        int g = (int) rowVectors[1](i);
+        int b = (int) rowVectors[2](i);
+        int a = 255; // I already know a channel is 255 (the image isn't transparent)
+
+        newImage.push_back(r);
+        newImage.push_back(g);
+        newImage.push_back(b);
+        newImage.push_back(a);
+    }
 
     int error = lodepng::encode(newPath, newImage, width, height);
     if (error) {
@@ -207,7 +215,7 @@ void printImage(std::vector<unsigned char> image, int height, int width){
             std::cout << "(" << (int) image[idx] << ", "
                       << (int) image[idx + 1] << ", "
                       << (int) image[idx + 2] << ", "
-                      << ")" << std::endl;
+                      << (int) image[idx + 3] << ")" << std::endl;
         }
     }    
 
@@ -216,7 +224,7 @@ void printImage(std::vector<unsigned char> image, int height, int width){
 
 std::vector<ChannelData> rgbChannel(std::vector<unsigned char> image, int height, int width){
 
-    std::vector<std::vector<int>> channelMatrices;
+    std::vector<std::vector<int>> channelMatrices(3);
     int channelCols = 0;
     int channelRows = 0;
     bool firstTime = true;
@@ -240,13 +248,13 @@ std::vector<ChannelData> rgbChannel(std::vector<unsigned char> image, int height
     ChannelData R_channel = ChannelData{channelMatrices[0], channelCols, channelRows};
     ChannelData G_channel = ChannelData{channelMatrices[1], channelCols, channelRows};
     ChannelData B_channel = ChannelData{channelMatrices[2], channelCols, channelRows};
-
+    
     return std::vector{R_channel, G_channel, B_channel};
 }
 
 void matrixToCsv(Eigen::MatrixXd &matrix, fs::path csvOutput, bool overwrite){
 
-    if (!overwrite and !fs::exists(csvOutput)){
+    if (!overwrite and fs::exists(csvOutput)){
         return;
     }
 
@@ -287,7 +295,7 @@ Eigen::MatrixXd csvToMatrix(const fs::path &filename) {
         while (std::getline(linestream, element, ',')) {
             if (!element.empty()) {
                 try {
-                    row.push_back(std::stod(element));
+                    row.push_back(std::stod(element) * 255.0);
                 } catch (...) {
                     row.push_back(0.0); // if stod fails
                 }

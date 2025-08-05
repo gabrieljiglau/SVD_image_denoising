@@ -1,5 +1,5 @@
 #include "tests.hpp"
-#include "imageUtils.hpp"
+#include "utils.hpp"
 #include "bidiagonalization.hpp"
 #include "golubKahan.hpp"
 #include <iostream>
@@ -24,7 +24,7 @@ void bidiagonalizeTest(){
 
 void golubKahanTest(){
 
-    fs::path csvFinalB = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matrices/channelR/B_final_test.csv";
+    fs::path csvFinalB = "/home/gabriel/Documents/HolyC/SVD_image_denoising/matricesTest/channelR/B_final_test.csv";
 
     Eigen::MatrixXd B_test(5, 5);
     Eigen::MatrixXd U_test (5, 5);

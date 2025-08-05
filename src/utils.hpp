@@ -24,7 +24,7 @@ bool isDiagonal(Eigen::MatrixXd B);
 Eigen::MatrixXd deflateValues(Eigen::MatrixXd B, double epsilon);
 
 void reconstructImage(std::vector<Eigen::MatrixXd> truncatedChannels, std::vector<unsigned char> &newImage,
-    std::string newPath, int height, int width, int idx);
+    std::string newPath, int height, int width, int id);
 
 void addNoise(std::vector<unsigned char>image, int height, int width);
 

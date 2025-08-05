@@ -21,47 +21,46 @@ std::vector<Eigen::MatrixXd> svdChannel(Eigen::MatrixXd &channelMatrix, std::vec
     // outChannel -> holds the final matrices
 
     std::vector<Eigen::MatrixXd> outChannel;
-
     if (!fs::exists(rgbChannel[0]) || !fs::exists(rgbChannel[1]) || !fs::exists(rgbChannel[2])){
-        
-        std::cout << "( " << index << " ): Bidiagonalizing, applying golub kahan svd " << std::endl;
 
-        std::vector<Eigen::MatrixXd> bidiagonalOut = bidiagonalize(channelMatrix, channelMatrix.rows(), channelMatrix.cols());
+        for (fs::path &currentPath : rgbChannel){
+            fs::create_directories(currentPath.parent_path());
+        }
         
+        std::cout << "currentPath[0]: " << rgbChannel[0] << " Bidiagonalizing" << std::endl;
+        std::vector<Eigen::MatrixXd> bidiagonalOut = bidiagonalize(channelMatrix, channelMatrix.rows(), channelMatrix.cols());
+        std::vector<Eigen::MatrixXd> bidiagonalMatrices = bidiagonalOut;
+
+        std::cout << "Now applying golub kahan" << std::endl;
         outChannel = svdGolubKahan(bidiagonalOut[0], bidiagonalOut[1], bidiagonalOut[2]);
 
-        // at the beginning the image was normalized, now we undo it
-        for (auto channel : outChannel){
-            channel *= 255.0; 
-        }
-
+        cleanDiagonalMatrix(outChannel[0]);
         // writing the final matrices
         for (int k = 0; k < outChannel.size(); k++){
+            outChannel[k] *= 255.0;
             matrixToCsv(outChannel[k], rgbChannel[k], true);
         }
         
         std::cout << "Now saving the decomposition" << std::endl;
-
-        // removing the eventual noise off the diagonal that still exists
-        cleanDiagonalMatrix(outChannel[0]);
     } else {
-
-        for (int k = 0; k < outChannel.size(); k++){
+        for (int k = 0; k < rgbChannel.size(); k++){
             outChannel.push_back(csvToMatrix(rgbChannel[k]));
         }
 
-        std::cout << "( " << index <<" ): Loading the decomposition" << std::endl;
+        std::cout << "currentPath[0]: " << rgbChannel[0] <<" Loading the decomposition" << std::endl;
     }
 
     return outChannel;
 }
 
-std::optional<std::vector<std::vector<Eigen::MatrixXd>>> svdChannels(std::string inputImage, unsigned width, unsigned height, std::vector<Eigen::MatrixXd> &channelMatrices, std::vector<std::vector<Eigen::MatrixXd>> &outMatrices,
+std::optional<std::vector<std::vector<Eigen::MatrixXd>>> svdChannels(std::string inputImage, unsigned &width, unsigned &height, std::vector<Eigen::MatrixXd> &channelMatrices, std::vector<std::vector<Eigen::MatrixXd>> &outMatrices,
                 std::vector<std::vector<fs::path>> rgbPaths){
 
     std::vector<unsigned char> image;
     unsigned error = lodepng::decode(image, width, height, inputImage);
-    std::vector<std::vector<Eigen::MatrixXd>> svdDecomp;
+    std::vector<std::vector<Eigen::MatrixXd>> svdDecomp(3, std::vector<Eigen::MatrixXd>(3));
+                
+    // printImage(image, height, width);
 
     if (error) {
         std::cerr << "Error when decoding" << error << " : " << lodepng_error_text(error) << std::endl;
@@ -85,8 +84,8 @@ std::optional<std::vector<std::vector<Eigen::MatrixXd>>> svdChannels(std::string
 
 // B, U, V (the order in the 'decomp' vector)
 void svdDenoising(std::string inputImage, unsigned width, unsigned height, std::vector<Eigen::MatrixXd> &channelMatrices, std::vector<std::vector<Eigen::MatrixXd>> &outMatrices,
-    std::vector<std::vector<fs::path>> rgbPaths, int k, int idx){
-
+    std::vector<std::vector<fs::path>> rgbPaths, int k, int id){
+    
     /* reconstruction step:
     in: original matrix M (of size m X n), kSVD 
     
@@ -111,13 +110,14 @@ void svdDenoising(std::string inputImage, unsigned width, unsigned height, std::
         Eigen::MatrixXd finalB = truncateB(currentDecomp[0], k);
         Eigen::MatrixXd finalU = truncateU(currentDecomp[1], k);
         Eigen::MatrixXd finalV = truncateV(currentDecomp[2], k);
-
+        
         truncatedChannels.push_back((finalU * finalB) * finalV);
+        assert(truncatedChannels[i].rows() == height && truncatedChannels[i].cols() == width);
     }
 
     std::vector<unsigned char> newImage;
-    std::string path = fmt::format("denoised{idx}.png", idx);
-    reconstructImage(truncatedChannels, newImage, path, height, width, idx);
+    std::string path = fmt::format("/home/gabriel/Documents/HolyC/SVD_image_denoising/images/denoised{}_{}.png", id, k);
+    reconstructImage(truncatedChannels, newImage, path, height, width, id);
 }
 
 
@@ -129,7 +129,6 @@ int main(){
 
     std::string myImage = "/home/gabriel/Documents/HolyC/SVD_image_denoising/images/noisy_mu0_std10.png";
 
-    std::cout << "Image is " << width << " x " << height << "\n";
 
     // printImage(image, height, width);
 
@@ -150,11 +149,11 @@ int main(){
     std::vector<std::vector<Eigen::MatrixXd>> outMatrices = {outR, outG, outB};
 
     // saving paths for SVD decomposition
-    std::vector<fs::path> channelR = {"../matrices/channelR/B.csv", "../matrices/channelR/U.csv", "../matrices/channelR/V.csv"};
-    std::vector<fs::path> channelG = {"../matrices/channelG/B_final.csv", "../matrices/channelG/U_final.csv", "../matrices/channelG/V_final.csv"};
-    std::vector<fs::path> channelB = {"../matrices/channelB/B_final.csv", "../matrices/channelB/U_final.csv", "../matrices/channelB/V_final.csv"};
+    std::vector<fs::path> channelR = {"matrices/channelR/B_final.csv", "matrices/channelR/U_final.csv", "matrices/channelR/V_final.csv"};
+    std::vector<fs::path> channelG = {"matrices/channelG/B_final.csv", "matrices/channelG/U_final.csv", "matrices/channelG/V_final.csv"};
+    std::vector<fs::path> channelB = {"matrices/channelB/B_final.csv", "matrices/channelB/U_final.csv", "matrices/channelB/V_final.csv"};
 
-    std::vector<std::vector<fs::path>> rgbPaths = {channelG, channelG, channelB};
+    std::vector<std::vector<fs::path>> rgbPaths = {channelR, channelG, channelB};
 
 
     // tests
@@ -169,6 +168,9 @@ int main(){
     int k = 50; // here, I should try more k's to see which one is the best
     int idx = 1; // the first image
     svdDenoising(myImage, width, height, channelMatrices, outMatrices, rgbPaths, k, idx);
+
+    //golubKahanTest();
+    
     //matrixToCsv(B_mine, csvPathB, true); 
     //matrixToCsv(U, csvPathU, true); 
     //matrixToCsv(V_transpose, csvPathV, true); 

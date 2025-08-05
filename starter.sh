@@ -12,8 +12,8 @@ if [ ! -f "$lode_png_out" ]; then
    fi
 fi
 
-utils_path=src/imageUtils.cpp
-utils_out=src/imageUtils.o
+utils_path=src/utils.cpp
+utils_out=src/utils.o
 g++ -c "$utils_path" -lfmt -o "$utils_out"
 if [ $? -ne 0 ]; then
    echo "Compiling $utils_path failed"

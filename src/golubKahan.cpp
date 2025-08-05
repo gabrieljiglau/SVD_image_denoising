@@ -46,13 +46,13 @@ std::tuple<double, double> givensCommon(double a, double b, double epsilon){
 void matMul(Eigen::MatrixXd &full, double sin, double cos, int i, bool right){
 
     if (!right){        
-        Eigen::RowVectorXd temp1 = full.row(i) * cos + full.row(i + 1) * sin;
+        Eigen::RowVectorXd temp1 = full.row(i) * cos - full.row(i + 1) * sin;
         Eigen::RowVectorXd temp2 = -full.row(i) * sin + full.row(i + 1) * cos;
 
         full.row(i) = temp1;
         full.row(i + 1) = temp2;
     } else {
-        Eigen::VectorXd temp1 = full.col(i) * cos + full.col(i + 1) * sin;
+        Eigen::VectorXd temp1 = full.col(i) * cos - full.col(i + 1) * sin;
         Eigen::VectorXd temp2 = -full.col(i) * sin + full.col(i + 1) * cos;
 
         full.col(i) = temp1;
@@ -62,8 +62,8 @@ void matMul(Eigen::MatrixXd &full, double sin, double cos, int i, bool right){
 
 void matMulTranspose(Eigen::MatrixXd &full, double sin, double cos, int i){
     
-    Eigen::VectorXd temp1 = full.col(i) * cos + full.col(i + 1) * sin;
-    Eigen::VectorXd temp2 = -full.col(i) * sin + full.col(i + 1) * cos;
+    Eigen::VectorXd temp1 = full.col(i) * cos - full.col(i + 1) * sin;
+    Eigen::VectorXd temp2 = full.col(i) * -sin + full.col(i + 1) * cos;
 
     full.col(i) = temp1;
     full.col(i + 1) = temp2;
@@ -121,7 +121,7 @@ std::vector<Eigen::MatrixXd> svdGolubKahan(Eigen::MatrixXd B, Eigen::MatrixXd &U
         applyShift(B, U, V_transposed, epsilon);
         B = deflateValues(B, epsilon);
 
-        if (iterationNumber >= 1500) {
+        if (iterationNumber >= 300) { //1500s
             break;
         }
 

@@ -25,6 +25,7 @@ std::vector<Eigen::MatrixXd> bidiagonalize(Eigen::MatrixXd A, int numRows, int n
     
     double epsilon = 1e-10;
     Eigen::MatrixXd A_balanced = A / 255.0;
+    // Eigen::MatrixXd A_balanced = A;
     Eigen::MatrixXd A_copy = A_balanced;
 
 
